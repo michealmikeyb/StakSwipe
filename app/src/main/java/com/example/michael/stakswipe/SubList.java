@@ -3,7 +3,7 @@ package com.example.michael.stakswipe;
 import java.util.ArrayList;
 
 /**
- * a list of all the subreddits that the user has seen and holds each the place in each subreddit
+ * a list of all the subreddits that the user has seen and holds each  place in each subreddit
  * Created by miche_000 on 7/26/2017.
  */
 

@@ -185,6 +185,9 @@ public class listing
         this.over_18 = over_18;
     }
 
+    /**
+     * @return
+     */
     public String getCreated ()
     {
         return created;

@@ -20,10 +20,13 @@ public class TagDeficit {
      * @return the numbers that were taken and are to be reassigned
      */
     public int[] give(int j){
-        int numbers = (int)(Math.floor(deficit*100));
+        if(deficit ==0){
+            return null;
+        }
+        int numbers = (int)(Math.ceil(deficit*100));
         int[] numToGive = new int[j];
         int x = 0;
-        for(int i = numbers; i>numbers-j; i--){
+        for(int i = numbers; i>numbers-j&&i>1; i--){
             numToGive[x] = places[i-1];
             places[i-1] = 0;
             deficit-=0.01;
@@ -37,7 +40,7 @@ public class TagDeficit {
      * @param j the numbers to make available for other tags
      */
     public void take(int[] j){
-        int numbers = (int)Math.floor(deficit*100);
+        int numbers = (int)Math.ceil(deficit*100);
         for(int i: j){
             places[numbers] = i;
             numbers++;
