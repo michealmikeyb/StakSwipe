@@ -436,11 +436,13 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             if (e1.getX() - e2.getX() > SWIPE_MIN_DISTANCE
                     && Math.abs(velocityX) > SWIPE_THRESHOLD_VELOCITY) {
                 onLeftSwipe();
+                System.out.println("left");
             }
             // left to right swipe
             else if (e2.getX() - e1.getX() > SWIPE_MIN_DISTANCE
                     && Math.abs(velocityX) > SWIPE_THRESHOLD_VELOCITY) {
                 onRightSwipe();
+                System.out.println("right");
             }
         } catch (Exception e) {
 

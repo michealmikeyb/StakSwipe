@@ -35,7 +35,7 @@ public class TagList {
             deflist[j] = j;
             j++;
         }
-        def = new TagDeficit(100, deflist);
+        def = new TagDeficit(80, deflist);
 
 
 
@@ -175,17 +175,11 @@ public class TagList {
         return list;
     }
 
-    public int getPercent(String name){
-        boolean inList = false;
-        for(PersonalTag p: allTags){
-            if(p.name.equals(name))
-                inList=true;
-        }
-        if(!inList)
-            return 0;
-        int counter = 0;
+    public double getPercent(String n){
+
+        double counter = 0;
         for(PersonalTag p: list){
-            if(p.name.equals(name))
+            if(p.name.equals(n))
                 counter+=0.01;
         }
         return counter;
