@@ -148,13 +148,15 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
             boolean seenIt = false;
             for(String s: alreadySeen){
-                if(s.equals(d.getId()))
+                if(d.getId() == null);
+                else if(s.equals(d.getId()))
                     seenIt = true;
             }
             if(seenIt){
                 newContent();
             }
             else {
+                if(d.getId()!=null)
                 alreadySeen.add(d.getId());
 
                 currentSubreddit = d.getSubreddit();//sets the current subreddit
