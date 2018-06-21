@@ -6,20 +6,23 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <ImageView
-        android:id="@+id/imageView"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:visibility="visible"
-        app:srcCompat="@android:drawable/alert_light_frame"
-        tools:layout_editor_absoluteX="150dp" />
-
     <TextView
         android:id="@+id/text1"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
+        android:layout_width="343dp"
+        android:layout_height="55dp"
         android:text="TextView"
-        tools:layout_editor_absoluteX="155dp"
-        tools:layout_editor_absoluteY="16dp" />
+        tools:layout_editor_absoluteX="21dp"
+        tools:layout_editor_absoluteY="0dp" />
+
+    <ImageView
+        android:id="@+id/imageView"
+        android:layout_width="342dp"
+        android:layout_height="447dp"
+        android:visibility="visible"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.38"
+        app:layout_constraintStart_toStartOf="parent"
+        app:srcCompat="@android:drawable/alert_light_frame"
+        tools:layout_editor_absoluteY="63dp" />
 
 </android.support.constraint.ConstraintLayout>

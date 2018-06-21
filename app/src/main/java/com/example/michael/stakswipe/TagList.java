@@ -2,6 +2,7 @@ package com.example.michael.stakswipe;
 
 import java.util.ArrayList;
 import java.util.Random;
+import android.content.SharedPreferences;
 
 /**
  * handles a list of tags that is randomly picked from to determine the tag/subreddit

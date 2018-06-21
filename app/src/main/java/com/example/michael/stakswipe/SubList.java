@@ -20,9 +20,11 @@ public class SubList {
      * @return the id of the next listing in the subreddit
      */
     public String getAfter(String s){
+        boolean alreadyIn = false;
         for(Sub a: list){
-            if(a.subreddit.equals(s))
+            if(a.subreddit.equals(s)) {
                 return a.after;
+            }
         }
         return "notIn";
     }
@@ -59,6 +61,14 @@ public class SubList {
 
         if(!alreadyIn)
             list.add(new Sub(s,a));
+    }
+
+    public String toString(){
+        String s = "subs: ";
+        for(Sub l: list){
+            s+=l.subreddit+"\n";
+        }
+        return s;
     }
 
 

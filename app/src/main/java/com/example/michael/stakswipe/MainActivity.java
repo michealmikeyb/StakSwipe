@@ -17,6 +17,8 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.squareup.picasso.Picasso;
 
+import java.util.ArrayList;
+
 public class MainActivity  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener{
     private TextView text;// text at the top that displays the title of the post
     private GestureDetectorCompat gestureDetector;//gesture detector for detecting either a right or left swipe
@@ -36,10 +38,11 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     private static final int SWIPE_THRESHOLD_VELOCITY = 200;
 
     private String currentSubreddit;//the subreddit of the currently viewed posting
-    private TagList list; // the taglist for storing the like and dislike information
+    public TagList list; // the taglist for storing the like and dislike information
     private String currentAfter;//the id of the next post in the specific subreddit
-    private SubList sublist;// stores the ids of the posts that will be pulled next for each subreddit
+    public SubList sublist;// stores the ids of the posts that will be pulled next for each subreddit
     private boolean isPopular = true;// shows whether the current post comes from the popular subreddit
+    private ArrayList<String> alreadySeen; //contains the ids of content that has already been seen
 
     //places to long term store the taglist information and the subreddit list information
     private SharedPreferences.Editor tagPref;
@@ -64,6 +67,9 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         list = new TagList();
         sublist = new SubList();
 
+        //initialize alreadyseen list
+        alreadySeen = new ArrayList<String>();
+
         //pulling the last taglist and sublist from the previous session or creating a new place to store it
         tagSettings = getSharedPreferences("stakTagSave", Context.MODE_PRIVATE);
         placeSettings = getSharedPreferences("stakPlaceSave", Context.MODE_PRIVATE);
@@ -77,21 +83,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
         text.setText("Start Swiping");
-        String newSub = list.getTag();
-        isPopular = newSub.equals("popular");
-
-        //pulls the first listing from reddit then starts downloading it, after done downloading it will go to update download( com.example.miche_000.stak.MainActivity#updateFromDownload(java.lang.Object))
-        if(sublist.getAfter(newSub).equals("notIn")) {
-            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/" + newSub + ".json?limit=1");
-            System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1");
-        }
-        else {
-            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
-            System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
-        }
-        mNetworkFragment.onCreate(null);
-        mNetworkFragment.setmCallback(this);
-        startDownload();
+        newContent();
 
 
 
@@ -124,17 +116,24 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     public void updateFromDownload(Object result) {
         String json = (String) result;
         save();//saves the current taglist and sublist
-        if(getDomain(json).equals("youtube.com")){//video posts have different json formats so have to be handled differently
-
+        if(json.contains("youtube.com")){//video posts have different json formats so have to be handled differently
+            newContent();
         }
         else {
-            int dataStart = json.lastIndexOf("\"data\":")+7;//finds the start of the data section of the json
-            int dataEnd = json.lastIndexOf("after")-5;
-            String title = json.substring(dataStart, dataEnd); // creates a substring of the data section
+            String title = "";
+            try {
+                int dataStart = json.lastIndexOf("\"data\":") + 7;//finds the start of the data section of the json
+
+                int dataEnd = json.lastIndexOf("after") - 5;
+                title = json.substring(dataStart, dataEnd); // creates a substring of the data section
+            }
+            catch(StringIndexOutOfBoundsException e){
+                System.out.println("out of bounds, json: "+json);
+                newContent();
+            }
 
             int afterStart = json.lastIndexOf("after")+9;//finds the start of the after pointer
             int afterEnd = json.lastIndexOf("before")-4;
-            currentAfter = json.substring(afterStart, afterEnd);
 
 
 
@@ -146,9 +145,26 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
                 d = new listing();
                 text.setText(e.toString());
             }
-            text.setText(d.getTitle());//sets the text to the title
-            currentSubreddit = d.getSubreddit();//sets the current subreddit
-            Picasso.with(this).load(d.getUrl()).into(iv);//sets the image to the image from the url in the listing
+
+            boolean seenIt = false;
+            for(String s: alreadySeen){
+                if(s.equals(d.getId()))
+                    seenIt = true;
+            }
+            if(seenIt){
+                newContent();
+            }
+            else {
+                alreadySeen.add(d.getId());
+
+                currentSubreddit = d.getSubreddit();//sets the current subreddit
+                currentAfter = json.substring(afterStart, afterEnd);
+
+
+                text.setText(d.getTitle());//sets the text to the title
+                Picasso.with(this).load(d.getUrl()).into(iv);//sets the image to the image from the url in the listing
+            }
+
         }
 
     }
@@ -240,7 +256,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         String placeLoad = placeSettings.getString("stakPlaceSave", "");
         sublist = gson.fromJson(placeLoad, SubList.class);
 
-        System.out.println(placeLoad);
+        System.out.println("loaded from:"+placeLoad);
 
 
     }
@@ -255,23 +271,12 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         if(isPopular){
             sublist.setAfter("popular", currentAfter);
         }
-        else
-            sublist.setAfter(currentSubreddit, currentAfter);
-
-        String newSub = list.getTag();
-        isPopular = newSub.equals("popular");//checks if the newsub is popular and sets the boolean
-        //assign the network fragment to a new url based on the after in the sublist
-        if(sublist.getAfter(newSub).equals("notIn")) {//checks if the newsub is in the sublist so it can see if it has to get the post from sublist.
-            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/" + newSub + ".json?limit=1");
-            System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1");
-        }
         else {
-            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
-            System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
+            sublist.setAfter(currentSubreddit, currentAfter);
+            System.out.println("sub:"+ currentSubreddit+ "after"+ currentAfter);
         }
-        mNetworkFragment.onCreate(null);
-        mNetworkFragment.setmCallback(this);
-        startDownload();//start download on new listing
+
+        newContent();
         System.out.println("left swipe");
 
     }
@@ -283,25 +288,41 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
         list.like(new PersonalTag(currentSubreddit));//likes current subreddit
         //checks if listing is from popular subreddit to assign after
+
         if(isPopular){
             sublist.setAfter("popular", currentAfter);
+            System.out.println("sub: "+"popular"+" after: "+sublist.getAfter("popular"));
         }
-        else
+        else {;
             sublist.setAfter(currentSubreddit, currentAfter);
+            System.out.println("sub: "+currentSubreddit+" after: "+sublist.getAfter(currentSubreddit));
+        }
 
-        String newSub = list.getTag();//gets the next sub and checks if it is popular
-        isPopular = newSub.equals("popular");
-        //checks if its already in sublist, if not just goes to first listing in subreddit, if it is then goes to the next listing
-        if(sublist.getAfter(newSub).equals("notIn"))
-            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/"+newSub+".json?limit=1");
-        else
-            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/"+newSub+".json?limit=1;after="+sublist.getAfter(newSub));
-        mNetworkFragment.onCreate(null);
-        mNetworkFragment.setmCallback(this);
-        startDownload();//starts download for new listing
+        newContent();
         System.out.println("right swipe");
     }
 
+    /**
+     * pulls up a new tag from the tag list then checks if it has an after then makes a url to send to the
+     * download manager to get the json to be parsed
+     */
+    public void newContent(){
+        String newSub = list.getTag();//gets the next sub and checks if it is popular
+        System.out.println("sub: "+newSub+" after: "+sublist.getAfter(newSub));
+        isPopular = newSub.equals("popular");
+        //checks if its already in sublist, if not just goes to first listing in subreddit, if it is then goes to the next listing
+        if(sublist.getAfter(newSub).equals("notIn")){
+            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/"+newSub+".json?limit=1");
+            System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1");
+        }
+        else {
+            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
+            System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
+        }
+        mNetworkFragment.onCreate(null);
+        mNetworkFragment.setmCallback(this);
+        startDownload();//starts download for new listing
+    }
 
 
     /**
@@ -352,7 +373,6 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     @Override
     public boolean onDown(MotionEvent e) {
-        sublist = new SubList();
         return true;
     }
 
@@ -428,6 +448,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     @Override
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+
         try {
             if (Math.abs(e1.getY() - e2.getY()) > SWIPE_MAX_OFF_PATH){
                 return false;
@@ -436,13 +457,11 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             if (e1.getX() - e2.getX() > SWIPE_MIN_DISTANCE
                     && Math.abs(velocityX) > SWIPE_THRESHOLD_VELOCITY) {
                 onLeftSwipe();
-                System.out.println("left");
             }
             // left to right swipe
             else if (e2.getX() - e1.getX() > SWIPE_MIN_DISTANCE
                     && Math.abs(velocityX) > SWIPE_THRESHOLD_VELOCITY) {
                 onRightSwipe();
-                System.out.println("right");
             }
         } catch (Exception e) {
 
