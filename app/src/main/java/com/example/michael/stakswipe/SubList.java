@@ -1,6 +1,10 @@
 package com.example.michael.stakswipe;
 
+import java.time.Instant;
 import java.util.ArrayList;
+import java.time.LocalDateTime;
+import java.util.Calendar;
+import java.util.Date;
 
 /**
  * a list of all the subreddits that the user has seen and holds each  place in each subreddit
@@ -9,9 +13,18 @@ import java.util.ArrayList;
 
 public class SubList {
     ArrayList<Sub> list;//the list to hold all the subreddits
+    Calendar calendar;//keep track of when to reset the sublist
+    final int TIME_TO_RESET = 12;//amount of time in hours it takes to reset;
+
 
     public SubList(){
         list = new ArrayList<Sub>();
+        calendar = Calendar.getInstance();
+        calendar.add(Calendar.HOUR, TIME_TO_RESET);//time to reset the sublist
+
+
+
+
     }
 
     /**
@@ -22,7 +35,7 @@ public class SubList {
     public String getAfter(String s){
         boolean alreadyIn = false;
         for(Sub a: list){
-            if(a.subreddit.equals(s)) {
+            if(s!=null && a.subreddit!=null && a.subreddit.equals(s)) {
                 return a.after;
             }
         }
@@ -69,6 +82,14 @@ public class SubList {
             s+=l.subreddit+"\n";
         }
         return s;
+    }
+
+    public boolean checkReset(){
+        Calendar now = Calendar.getInstance();
+        if(now.after(calendar)){
+            return true;
+        }
+        return false;
     }
 
 

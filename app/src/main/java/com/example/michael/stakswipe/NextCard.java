@@ -12,9 +12,6 @@ import android.transition.Slide;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
-import android.view.View;
-import android.view.animation.Animation;
-import android.view.animation.TranslateAnimation;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.LinearLayout;
@@ -30,7 +27,7 @@ import com.squareup.picasso.Picasso;
 
 import java.util.ArrayList;
 
-public class MainActivity  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener{
+public class NextCard  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener{
     private TextView text;// text at the top that displays the title of the post
     private GestureDetectorCompat gestureDetector;//gesture detector for detecting either a right or left swipe
     private ImageView iv; // image view for displaying the images of posts
@@ -67,7 +64,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     @Override
     protected void onCreate (Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_next_card);
         //initializing the views
         text = (TextView) findViewById(R.id.text1);
         iv = (ImageView) findViewById(R.id.imageView) ;
@@ -161,12 +158,12 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
 
-                currentSubreddit = d.getSubreddit();//sets the current subreddit
-                currentAfter = json.substring(afterStart, afterEnd);
+            currentSubreddit = d.getSubreddit();//sets the current subreddit
+            currentAfter = json.substring(afterStart, afterEnd);
 
 
-                text.setText(d.getTitle());//sets the text to the title
-                Picasso.with(this).load(d.getUrl()).into(iv);//sets the image to the image from the url in the listing
+            text.setText(d.getTitle());//sets the text to the title
+            Picasso.with(this).load(d.getUrl()).into(iv);//sets the image to the image from the url in the listing
 
 
         }
@@ -279,13 +276,13 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         if(isPopular){
             sublist.setAfter("popular", currentAfter);
         }
+        Slide s = new Slide(Gravity.LEFT);
+        getWindow().setExitTransition(s);
 
-        TranslateAnimation leftAnimation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_PARENT, -1, Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_SELF, 0);
-        leftAnimation.setDuration(500);
-        topCard.startAnimation(leftAnimation);
-        newContent();
+        Intent i = new Intent(this, MainActivity.class);
 
-        //newContent();
+        save();
+        startActivity(i , ActivityOptions.makeSceneTransitionAnimation(this).toBundle());
 
     }
 
@@ -293,21 +290,21 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * handles the right swipe action, likes the current subreddit, pulls up new url and starts the download on the url
      */
     public void onRightSwipe(){
-        System.out.println("right");
+
         list.like(new PersonalTag(currentSubreddit));//likes current subreddit
         //checks if listing is from popular subreddit to assign after
         sublist.setAfter(currentSubreddit, currentAfter);
         if(isPopular){
             sublist.setAfter("popular", currentAfter);
         }
-        TranslateAnimation rightAnimation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_PARENT, 1, Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_SELF, 0);
-        rightAnimation.setDuration(500);
-        topCard.startAnimation(rightAnimation);
-        newContent();
+        Slide s = new Slide(Gravity.RIGHT);
+        getWindow().setExitTransition(s);
 
+        Intent i = new Intent(this, MainActivity.class);
+
+        save();
+        startActivity(i , ActivityOptions.makeSceneTransitionAnimation(this).toBundle());
     }
-
-
 
     /**
      * pulls up a new tag from the tag list then checks if it has an after then makes a url to send to the
@@ -368,7 +365,6 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     @Override
     public boolean onDoubleTapEvent(MotionEvent e) {
-        sublist = new SubList();
         return true;
     }
 
@@ -469,7 +465,6 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             // left to right swipe
             else if (e2.getX() - e1.getX() > SWIPE_MIN_DISTANCE
                     && Math.abs(velocityX) > SWIPE_THRESHOLD_VELOCITY) {
-                list.like(new PersonalTag(currentSubreddit));
                 onRightSwipe();
             }
         } catch (Exception e) {

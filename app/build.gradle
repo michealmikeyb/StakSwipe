@@ -4,7 +4,7 @@ android {
     compileSdkVersion 28
     defaultConfig {
         applicationId "com.example.michael.stakswipe"
-        minSdkVersion 15
+        minSdkVersion 21
         targetSdkVersion 28
         versionCode 1
         versionName "1.0"
@@ -26,6 +26,7 @@ android {
             path "CMakeLists.txt"
         }
     }
+    sourceSets { main { res.srcDirs = ['src/main/res', 'src/main/res/anim'] } }
 }
 
 dependencies {
