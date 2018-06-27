@@ -23,7 +23,7 @@ public class listing
 
     private String removal_reason;
 
-    private String secure_media;
+    private Object secure_media;
 
     private String num_reports;
 
@@ -65,7 +65,7 @@ public class listing
 
     private String locked;
 
-    private String media;
+    private Object media;
 
     private Object media_embed;
 
@@ -218,12 +218,12 @@ public class listing
         this.removal_reason = removal_reason;
     }
 
-    public String getSecure_media ()
+    public Object getSecure_media ()
 {
     return secure_media;
 }
 
-    public void setSecure_media (String secure_media)
+    public void setSecure_media (Object secure_media)
     {
         this.secure_media = secure_media;
     }
@@ -428,12 +428,12 @@ public class listing
         this.locked = locked;
     }
 
-    public String getMedia ()
+    public Object getMedia ()
 {
     return media;
 }
 
-    public void setMedia (String media)
+    public void setMedia (Object media)
     {
         this.media = media;
     }

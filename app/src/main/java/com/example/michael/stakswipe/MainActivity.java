@@ -32,9 +32,12 @@ import java.util.ArrayList;
 
 public class MainActivity  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener{
     private TextView text;// text at the top that displays the title of the post
+    private TextView botTxt;
     private GestureDetectorCompat gestureDetector;//gesture detector for detecting either a right or left swipe
     private ImageView iv; // image view for displaying the images of posts
+    private ImageView botImg;//bottom image view
     private CardView topCard;
+    private CardView bottomCard;
 
     // Keep a reference to the NetworkFragment, which owns the AsyncTask object
     // that is used to execute network ops.
@@ -64,6 +67,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
 
+
+
     @Override
     protected void onCreate (Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -71,7 +76,10 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         //initializing the views
         text = (TextView) findViewById(R.id.text1);
         iv = (ImageView) findViewById(R.id.imageView) ;
+        botTxt = (TextView) findViewById(R.id.text2);
+        botImg = (ImageView) findViewById(R.id.imageView2) ;
         topCard = (CardView) findViewById(R.id.topCard);
+        bottomCard = (CardView) findViewById(R.id.bottomCard);
         gestureDetector = new GestureDetectorCompat(this, this);
         gestureDetector.setOnDoubleTapListener(this);
 
@@ -80,21 +88,22 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         //initializing the list
         list = new TagList();
         sublist = new SubList();
+        save();
 
         //pulling the last taglist and sublist from the previous session or creating a new place to store it
         tagSettings = getSharedPreferences("stakTagSave", Context.MODE_PRIVATE);
         placeSettings = getSharedPreferences("stakPlaceSave", Context.MODE_PRIVATE);
         tagPref = tagSettings.edit();
         placePref = placeSettings.edit();
-        if(tagSettings.contains("stakTagSave"))
+        /**if(tagSettings.contains("stakTagSave"))
             restore();
         else
-            save();
+            save();**/
 
 
 
 
-        text.setText("Loading");
+        text.setText("Start Swiping");
         newContent();
 
 
@@ -133,15 +142,16 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         }
         else {
             String title = "";
-            try {
-                int dataStart = json.lastIndexOf("\"data\":") + 7;//finds the start of the data section of the json
-
-                int dataEnd = json.lastIndexOf("after") - 5;
+            try {//finds the third { of the json because thats where the listing data starts
+                int dataStart = json.indexOf('{', json.indexOf('{', json.indexOf('{', json.indexOf('{')+1)+1)+1);
+                //finds the third } of the json because thats where the listing data ends
+                int dataEnd = json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}')-1)-1)-1)+1;
                 title = json.substring(dataStart, dataEnd); // creates a substring of the data section
             }
             catch(StringIndexOutOfBoundsException e){
-                System.out.println("out of bounds, json: "+json);
-                newContent();
+                int start =  json.indexOf('{', json.indexOf('{', json.indexOf('{', json.indexOf('{')+1)+1)+1);
+                int end = json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}')-1)-1)-1)+1;
+                System.out.println("out of bounds, start: "+start+" end: "+end);
             }
 
             int afterStart = json.lastIndexOf("after")+9;//finds the start of the after pointer
@@ -154,8 +164,9 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             try {
                 d = gson.fromJson(title, listing.class);//turns the data into a listing
             } catch (JsonSyntaxException e) {
+
                 d = new listing();
-                text.setText(e.toString());
+                System.out.println(e.toString());
             }
 
 
@@ -165,8 +176,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
                 currentAfter = json.substring(afterStart, afterEnd);
 
 
-                text.setText(d.getTitle());//sets the text to the title
-                Picasso.with(this).load(d.getUrl()).into(iv);//sets the image to the image from the url in the listing
+                botTxt.setText(d.getTitle());//sets the text to the title
+                Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
 
 
         }
@@ -242,7 +253,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
         }
         catch (Exception e) {
-            System.out.println("save error");
+            System.out.println("save error "+ e.toString());
             return false;
         }
     }
@@ -270,7 +281,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
     /**
-     * handles left swipe action, dislikes the current subreddit, starts download of next listing
+     * handles left swipe action, dislikes the current subreddit, does a swipe left animation and
+     * starts download of next listing
      */
     public void onLeftSwipe(){
         list.dislike(new PersonalTag(currentSubreddit));//dislikes current subreddit
@@ -279,18 +291,46 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         if(isPopular){
             sublist.setAfter("popular", currentAfter);
         }
-
+        //left swipe animation
         TranslateAnimation leftAnimation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_PARENT, -1, Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_SELF, 0);
-        leftAnimation.setDuration(500);
+        leftAnimation.setDuration(500);//duration of the animation in milliseconds
+        Animation.AnimationListener l = new Animation.AnimationListener() {//listener to tell when animation has ended
+            @Override
+            public void onAnimationStart(Animation animation) {
+
+            }
+
+            @Override
+            public void onAnimationEnd(Animation animation) {//once animation has ended swap the cards then start to load new content on the bottom card
+                swapCards();
+                newContent();
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {
+
+            }
+        };
+        leftAnimation.setAnimationListener(l);
         topCard.startAnimation(leftAnimation);
-        newContent();
-
-        //newContent();
-
     }
 
     /**
-     * handles the right swipe action, likes the current subreddit, pulls up new url and starts the download on the url
+     * puts the text and picture from the bottom card on to the top card and keeps the top card invisible
+     * while the process is happening
+     */
+    public void swapCards(){
+
+        topCard.setVisibility(View.INVISIBLE);//set top card to invisible
+       iv.setImageDrawable(botImg.getDrawable());//put the picture of the bottom card on the top card
+       text.setText(botTxt.getText());//do the same with the text
+
+        topCard.setVisibility(View.VISIBLE);//make it visible again
+    }
+
+    /**
+     * handles the right swipe action, likes the current subreddit, does a right swiping animation
+     * then starts a new listing on the bottom card
      */
     public void onRightSwipe(){
         System.out.println("right");
@@ -300,10 +340,28 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         if(isPopular){
             sublist.setAfter("popular", currentAfter);
         }
+
         TranslateAnimation rightAnimation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_PARENT, 1, Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_SELF, 0);
         rightAnimation.setDuration(500);
+        Animation.AnimationListener l = new Animation.AnimationListener() {
+            @Override
+            public void onAnimationStart(Animation animation) {
+
+            }
+
+            @Override
+            public void onAnimationEnd(Animation animation) {
+                swapCards();
+                newContent();
+            }
+
+            @Override
+            public void onAnimationRepeat(Animation animation) {
+
+            }
+        };
+        rightAnimation .setAnimationListener(l);
         topCard.startAnimation(rightAnimation);
-        newContent();
 
     }
 
@@ -315,7 +373,6 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     public void newContent(){
         String newSub = list.getTag();//gets the next sub and checks if it is popular
-        System.out.println("sub: "+newSub+" after: "+sublist.getAfter(newSub));
         isPopular = newSub.equals("popular");
         //checks if its already in sublist, if not just goes to first listing in subreddit, if it is then goes to the next listing
         if(sublist.getAfter(newSub).equals("notIn")){

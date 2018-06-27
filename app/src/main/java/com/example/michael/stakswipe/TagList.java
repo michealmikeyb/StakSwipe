@@ -56,11 +56,11 @@ public class TagList {
                 break;
             }
         }
-        double raise;//the amount to raise the rating by
+        double raise = 0;//the amount to raise the rating by
         if(alreadyIn){//if its already in then just likes it , if not gives first like and adds it to alltags
             raise = p.like();
         }
-        else {
+        else if(p!=null) {
             raise = p.firstLike();
             allTags.add(p);
 
@@ -124,7 +124,7 @@ public class TagList {
             }
         }
 
-        else {//gives first dislike making rating -5 and adding it to the alltags list
+        else if(p!=null){//gives first dislike making rating -5 and adding it to the alltags list
             p.firstDislike();
             allTags.add(p);
         }
