@@ -23,6 +23,7 @@ import android.support.v7.widget.CardView;
 import android.content.Intent;
 
 
+import com.bumptech.glide.Glide;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
@@ -177,8 +178,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
                 botTxt.setText(d.getTitle());//sets the text to the title
-                Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
-
+                //Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
+                Glide.with(this).load(d.getUrl()).into(botImg);
 
         }
 
