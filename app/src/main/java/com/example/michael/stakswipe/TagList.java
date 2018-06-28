@@ -51,7 +51,7 @@ public class TagList {
     public void like(PersonalTag p){
         boolean alreadyIn = false;//whether the tag is already in
         for(PersonalTag s: allTags){//checks to see if the tag is already in the alltags list
-            if(s.name!=null && s.name.equals(p.name)){
+            if(s.name!=null && p!=null&& s.name.equals(p.name)){
                 alreadyIn = true;
                 break;
             }
@@ -94,7 +94,7 @@ public class TagList {
     public void dislike(PersonalTag p){
         boolean alreadyIn = false;//whether the tag is already in the list
         for(PersonalTag s: allTags){//checks if the tag is already in
-            if(s.name!=null && s.name.equals(p.name)){
+            if(s.name!=null && p!=null && s.name.equals(p.name)){
                 alreadyIn = true;
                 break;
             }

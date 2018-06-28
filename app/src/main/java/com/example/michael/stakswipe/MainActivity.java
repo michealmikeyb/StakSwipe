@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.transition.Slide;
+import android.util.JsonReader;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
@@ -29,6 +30,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.squareup.picasso.Picasso;
 
+import java.io.Reader;
 import java.util.ArrayList;
 
 public class MainActivity  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener{
@@ -37,6 +39,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     private GestureDetectorCompat gestureDetector;//gesture detector for detecting either a right or left swipe
     private ImageView iv; // image view for displaying the images of posts
     private ImageView botImg;//bottom image view
+    private TextView topSub;//displays the subreddit and author of the post
+    private TextView botSub;
     private CardView topCard;
     private CardView bottomCard;
 
@@ -47,6 +51,9 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     // Boolean telling us whether a download is in progress, so we don't trigger overlapping
     // downloads with consecutive button clicks.
     private boolean mDownloading = false;
+
+    private boolean firstCheck = false;//boolean to see if it is the first time a json url has been tried to be downloaded
+    private String jsonUrl;//holds the url of the json to be gotten from the server
 
     //settings for the tolerance of a left or right swipe
     private static final int SWIPE_MIN_DISTANCE = 120;
@@ -81,6 +88,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         botImg = (ImageView) findViewById(R.id.imageView2) ;
         topCard = (CardView) findViewById(R.id.topCard);
         bottomCard = (CardView) findViewById(R.id.bottomCard);
+        topSub = (TextView) findViewById(R.id.subject1);
+        botSub = (TextView) findViewById(R.id.subject2);
         gestureDetector = new GestureDetectorCompat(this, this);
         gestureDetector.setOnDoubleTapListener(this);
 
@@ -89,22 +98,21 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         //initializing the list
         list = new TagList();
         sublist = new SubList();
-        save();
 
         //pulling the last taglist and sublist from the previous session or creating a new place to store it
         tagSettings = getSharedPreferences("stakTagSave", Context.MODE_PRIVATE);
         placeSettings = getSharedPreferences("stakPlaceSave", Context.MODE_PRIVATE);
         tagPref = tagSettings.edit();
         placePref = placeSettings.edit();
-        /**if(tagSettings.contains("stakTagSave"))
+        if(tagSettings.contains("stakTagSave"))
             restore();
         else
-            save();**/
+            save();
 
 
 
 
-        text.setText("Start Swiping");
+        text.setText("Loading...");
         newContent();
 
 
@@ -139,7 +147,16 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         String json = (String) result;
         save();//saves the current taglist and sublist
         if(json.contains("youtube.com")){//video posts have different json formats so have to be handled differently
+            int afterStart = json.lastIndexOf("after")+9;//finds the start of the after pointer
+            int afterEnd = json.lastIndexOf("before")-4;
+
+            int subStart = json.indexOf("\"subreddit\"")+14;
+            int subEnd = json.indexOf("\"selftext\"")-3;
+            System.out.println(json.substring(subStart, subEnd));
+            currentSubreddit = json.substring(subStart, subEnd);
+            currentAfter = json.substring(afterStart, afterEnd);
             newContent();
+            return;
         }
         else {
             String title = "";
@@ -150,9 +167,18 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
                 title = json.substring(dataStart, dataEnd); // creates a substring of the data section
             }
             catch(StringIndexOutOfBoundsException e){
-                int start =  json.indexOf('{', json.indexOf('{', json.indexOf('{', json.indexOf('{')+1)+1)+1);
-                int end = json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}')-1)-1)-1)+1;
-                System.out.println("out of bounds, start: "+start+" end: "+end);
+                if(!firstCheck){//tries the same url again in case it was an error in downloading/ lost packets
+                    firstCheck = true;
+                    mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), jsonUrl);
+                    mNetworkFragment.onCreate(null);
+                    mNetworkFragment.setmCallback(this);
+                    startDownload();//starts download for new listing
+                }
+                else {//if not changes firstcheck back to false and tries new content
+                    firstCheck = false;
+                    newContent();
+                    return;
+                }
             }
 
             int afterStart = json.lastIndexOf("after")+9;//finds the start of the after pointer
@@ -168,18 +194,21 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
                 d = new listing();
                 System.out.println(e.toString());
+                return;
             }
 
 
 
-
+            if(d!=null) {
                 currentSubreddit = d.getSubreddit();//sets the current subreddit
                 currentAfter = json.substring(afterStart, afterEnd);
 
-
+                swapCards();
                 botTxt.setText(d.getTitle());//sets the text to the title
-                //Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
-                Glide.with(this).load(d.getUrl()).into(botImg);
+                botSub.setText("Posted on: " + d.getSubreddit() + "\nBy: " + d.getAuthor());
+                Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
+                //Glide.with(this).load(d.getUrl()).into(botImg);
+            }
 
         }
 
@@ -322,9 +351,9 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     public void swapCards(){
 
-        topCard.setVisibility(View.INVISIBLE);//set top card to invisible
        iv.setImageDrawable(botImg.getDrawable());//put the picture of the bottom card on the top card
        text.setText(botTxt.getText());//do the same with the text
+        topSub.setText(botSub.getText());
 
         topCard.setVisibility(View.VISIBLE);//make it visible again
     }
@@ -352,7 +381,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
             @Override
             public void onAnimationEnd(Animation animation) {
-                swapCards();
+                topCard.setVisibility(View.INVISIBLE);//set top card to invisible
                 newContent();
             }
 
@@ -379,10 +408,12 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         if(sublist.getAfter(newSub).equals("notIn")){
             mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/"+newSub+".json?limit=1");
             System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1");
+            jsonUrl = "https://www.reddit.com/r/" + newSub + ".json?limit=1";
         }
         else {
             mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
             System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
+            jsonUrl = "https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub);
         }
         mNetworkFragment.onCreate(null);
         mNetworkFragment.setmCallback(this);
