@@ -3,9 +3,12 @@ package com.example.michael.stakswipe;
 import android.app.ActivityOptions;
 import android.content.Context;
 import android.content.SharedPreferences;
+import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
+import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.Nullable;
 import android.support.v4.view.GestureDetectorCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.transition.Slide;
@@ -16,15 +19,23 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.ImageView;
+import android.widget.MediaController;
 import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.view.ViewGroup;
 import android.support.v7.widget.CardView;
 import android.content.Intent;
+import android.widget.VideoView;
 
 
 import com.bumptech.glide.Glide;
+import com.bumptech.glide.load.DataSource;
+import com.bumptech.glide.load.engine.GlideException;
+import com.bumptech.glide.request.RequestListener;
+import com.bumptech.glide.request.target.Target;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
@@ -39,6 +50,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     private GestureDetectorCompat gestureDetector;//gesture detector for detecting either a right or left swipe
     private ImageView iv; // image view for displaying the images of posts
     private ImageView botImg;//bottom image view
+    private WebView topWeb;
+    private WebView botWeb;
     private TextView topSub;//displays the subreddit and author of the post
     private TextView botSub;
     private CardView topCard;
@@ -60,9 +73,14 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     private static final int SWIPE_MAX_OFF_PATH = 250;
     private static final int SWIPE_THRESHOLD_VELOCITY = 200;
 
-    private String currentSubreddit;//the subreddit of the currently viewed posting
+    private String botSubreddit;//the subreddit of the currently viewed posting
     public TagList list; // the taglist for storing the like and dislike information
-    private String currentAfter;//the id of the next post in the specific subreddit
+    private String botAfter;//the id of the next post in the specific subreddit
+    private String topSubreddit;//the sub of the content currently on the top card
+    private String topAfter;//the after of the current listing on the top card
+    private String currentUrl;//the url of the current listing
+    private boolean imageLoading;//whether the image is loading or not
+    private boolean isWebView;
     public SubList sublist;// stores the ids of the posts that will be pulled next for each subreddit
     private boolean isPopular = true;// shows whether the current post comes from the popular subreddit
 
@@ -90,8 +108,13 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         bottomCard = (CardView) findViewById(R.id.bottomCard);
         topSub = (TextView) findViewById(R.id.subject1);
         botSub = (TextView) findViewById(R.id.subject2);
+        topWeb = (WebView) findViewById(R.id.webView1);
+        botWeb = (WebView) findViewById(R.id.webView2);
+        botWeb.setWebViewClient(new WebViewClient());
+        topWeb.setWebViewClient(new WebViewClient());
         gestureDetector = new GestureDetectorCompat(this, this);
         gestureDetector.setOnDoubleTapListener(this);
+
 
 
 
@@ -153,15 +176,16 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             int subStart = json.indexOf("\"subreddit\"")+14;
             int subEnd = json.indexOf("\"selftext\"")-3;
             System.out.println(json.substring(subStart, subEnd));
-            currentSubreddit = json.substring(subStart, subEnd);
-            currentAfter = json.substring(afterStart, afterEnd);
+            botSubreddit = json.substring(subStart, subEnd);
+            botAfter = json.substring(afterStart, afterEnd);
             newContent();
             return;
         }
         else {
             String title = "";
             try {//finds the third { of the json because thats where the listing data starts
-                int dataStart = json.indexOf('{', json.indexOf('{', json.indexOf('{', json.indexOf('{')+1)+1)+1);
+                //int dataStart = json.indexOf('{', json.indexOf('{', json.indexOf('{', json.indexOf('{')+1)+1)+1);
+                int dataStart = json.lastIndexOf("\"data\"")+7;
                 //finds the third } of the json because thats where the listing data ends
                 int dataEnd = json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}')-1)-1)-1)+1;
                 title = json.substring(dataStart, dataEnd); // creates a substring of the data section
@@ -199,18 +223,46 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
 
-            if(d!=null) {
-                currentSubreddit = d.getSubreddit();//sets the current subreddit
-                currentAfter = json.substring(afterStart, afterEnd);
 
+            if(d!=null) {
                 swapCards();
+                botSubreddit = d.getSubreddit();//sets the current subreddit
+                botAfter = json.substring(afterStart, afterEnd);
+                currentUrl = d.getUrl();
+
                 botTxt.setText(d.getTitle());//sets the text to the title
                 botSub.setText("Posted on: " + d.getSubreddit() + "\nBy: " + d.getAuthor());
-                Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
-                //Glide.with(this).load(d.getUrl()).into(botImg);
+
+
+                    //Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
+                    imageLoading = true;
+                    isWebView = false;
+                    Glide.with(this).load(d.getUrl()).listener(new RequestListener<Drawable>() {
+                        @Override
+                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                            imageLoading = false;
+                            isWebView = true;
+                            botWeb.loadUrl(currentUrl);
+                            botWeb.setVisibility(View.VISIBLE);
+                            botImg.setVisibility(View.GONE);
+                            return false;
+                        }
+
+                        @Override
+                        public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                            if (iv.getDrawable() == null)
+                                System.out.println("done loading");
+                                botWeb.setVisibility(View.GONE);
+                                botImg.setVisibility(View.VISIBLE);
+                                isWebView = false;
+                                imageLoading = false;
+                            return false;
+                        }
+                    }).into(botImg);
+                }
             }
 
-        }
+
 
     }
 
@@ -315,11 +367,11 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * starts download of next listing
      */
     public void onLeftSwipe(){
-        list.dislike(new PersonalTag(currentSubreddit));//dislikes current subreddit
+        list.dislike(new PersonalTag(topSubreddit));//dislikes current subreddit
         //sets which subreddit it will set the after to
-        sublist.setAfter(currentSubreddit, currentAfter);
+        sublist.setAfter(topSubreddit, topAfter);
         if(isPopular){
-            sublist.setAfter("popular", currentAfter);
+            sublist.setAfter("popular", topAfter);
         }
         //left swipe animation
         TranslateAnimation leftAnimation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_PARENT, -1, Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_SELF, 0);
@@ -350,11 +402,23 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * while the process is happening
      */
     public void swapCards(){
-
-       iv.setImageDrawable(botImg.getDrawable());//put the picture of the bottom card on the top card
+        if(isWebView&&!imageLoading){
+            topWeb.loadUrl(botWeb.getUrl());
+            topWeb.setVisibility(View.VISIBLE);
+            iv.setVisibility(View.GONE);
+        }
+        else {
+            topWeb.setVisibility(View.GONE);
+            iv.setVisibility(View.VISIBLE);
+            iv.setImageDrawable(botImg.getDrawable());//put the picture of the bottom card on the top card
+        }
        text.setText(botTxt.getText());//do the same with the text
         topSub.setText(botSub.getText());
-
+        topSubreddit = botSubreddit;
+        topAfter = botAfter;
+        if(imageLoading){
+            Picasso.with(this).load(currentUrl).into(iv);
+        }
         topCard.setVisibility(View.VISIBLE);//make it visible again
     }
 
@@ -364,11 +428,11 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     public void onRightSwipe(){
         System.out.println("right");
-        list.like(new PersonalTag(currentSubreddit));//likes current subreddit
+        list.like(new PersonalTag(topSubreddit));//likes current subreddit
         //checks if listing is from popular subreddit to assign after
-        sublist.setAfter(currentSubreddit, currentAfter);
+        sublist.setAfter(topSubreddit, topAfter);
         if(isPopular){
-            sublist.setAfter("popular", currentAfter);
+            sublist.setAfter("popular", topAfter);
         }
 
         TranslateAnimation rightAnimation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_PARENT, 1, Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_SELF, 0);
@@ -558,7 +622,6 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             // left to right swipe
             else if (e2.getX() - e1.getX() > SWIPE_MIN_DISTANCE
                     && Math.abs(velocityX) > SWIPE_THRESHOLD_VELOCITY) {
-                list.like(new PersonalTag(currentSubreddit));
                 onRightSwipe();
             }
         } catch (Exception e) {

@@ -35,7 +35,7 @@ public class SubList {
     public String getAfter(String s){
         boolean alreadyIn = false;
         for(Sub a: list){
-            if(s!=null && a.subreddit!=null && a.subreddit.equals(s)) {
+            if(s!=null && a.after!=null && a.subreddit.equals(s)) {
                 return a.after;
             }
         }
