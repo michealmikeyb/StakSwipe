@@ -1,7 +1,9 @@
 package com.example.michael.stakswipe;
 
 import android.app.ActivityOptions;
+import android.app.Dialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.graphics.drawable.Drawable;
 import android.net.ConnectivityManager;
@@ -9,12 +11,18 @@ import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Bundle;
 import android.support.annotation.Nullable;
+import android.support.v4.app.DialogFragment;
 import android.support.v4.view.GestureDetectorCompat;
+import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.transition.Slide;
 import android.util.JsonReader;
 import android.view.GestureDetector;
 import android.view.Gravity;
+import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.Animation;
@@ -44,18 +52,18 @@ import com.squareup.picasso.Picasso;
 import java.io.Reader;
 import java.util.ArrayList;
 
-public class MainActivity  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener{
+public class MainActivity  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener, AddTagDialog.AddTagDialogListener{
     private TextView text;// text at the top that displays the title of the post
     private TextView botTxt;
     private GestureDetectorCompat gestureDetector;//gesture detector for detecting either a right or left swipe
     private ImageView iv; // image view for displaying the images of posts
     private ImageView botImg;//bottom image view
-    private WebView topWeb;
-    private WebView botWeb;
+    private WebView topWeb;//displays webpages for the topcard in the case that the content is not an image
+    private WebView botWeb;//displays webpages for the bottomcard
     private TextView topSub;//displays the subreddit and author of the post
     private TextView botSub;
-    private CardView topCard;
-    private CardView bottomCard;
+    private CardView topCard;//the card layout containing the content that the user is seeing
+    private CardView bottomCard;//the card ayout below the top card that is used to buffer
 
     // Keep a reference to the NetworkFragment, which owns the AsyncTask object
     // that is used to execute network ops.
@@ -141,6 +149,59 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
 
+    }
+
+    /**creates the options menu in the top right of the app
+     * @param menu
+     * @return
+     */
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        MenuInflater inflater = getMenuInflater();
+        inflater.inflate(R.menu.menu, menu);
+        return true;
+    }
+
+    /** handles the user clicking on one of the options in the options menu
+     * @param item
+     * @return
+     */
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        switch (item.getItemId()){
+            case R.id.share: {//if the user selects share goes to the share method
+                onUpSwipe();
+                return true;
+            }
+            case R.id.add_tag://if the user selects add tag opens up a dialog where the user can enter the tag they want to add to their list
+            {
+                AddTagDialog dialog = new AddTagDialog();
+                dialog.show(this.getSupportFragmentManager(), "Enter Tag");
+                return true;
+            }
+
+            default:
+                return super.onOptionsItemSelected(item);
+        }
+    }
+
+    /** handles the dialog for the user adding a tag to the list if the user cancels out
+     * currently does nothing and just returns to the app
+     * @param dialog
+     */
+    @Override
+    public void onDialogNegativeClick(DialogFragment dialog) {
+
+    }
+
+    /** handles when the user hits add tag within the dialog
+     * adds the tag to the taglist
+     * @param dialog
+     * @param tag
+     */
+    @Override
+    public void onDialogPositiveClick(DialogFragment dialog, String tag) {
+        list.like(new PersonalTag(tag));
     }
 
     /**
@@ -231,28 +292,29 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
                 currentUrl = d.getUrl();
 
                 botTxt.setText(d.getTitle());//sets the text to the title
-                botSub.setText("Posted on: " + d.getSubreddit() + "\nBy: " + d.getAuthor());
+                botSub.setText("Posted on: " + d.getSubreddit() + "\nBy: " + d.getAuthor());//gives context for the content
 
 
                     //Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
                     imageLoading = true;
-                    isWebView = false;
+                    isWebView = false;//assume it is an image until it fails to load
+                    botWeb.loadUrl("about:blank");
                     Glide.with(this).load(d.getUrl()).listener(new RequestListener<Drawable>() {
-                        @Override
+                        @Override//if the content fails to load it is assumed that it is not an image and tries to load it in a webview
                         public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
                             imageLoading = false;
-                            isWebView = true;
+                            isWebView = true;//needed for swapping the cards
                             botWeb.loadUrl(currentUrl);
                             botWeb.setVisibility(View.VISIBLE);
-                            botImg.setVisibility(View.GONE);
+                            botImg.setVisibility(View.INVISIBLE);
                             return false;
                         }
 
-                        @Override
+                        @Override//if it can be loaded sets the webview to invisible
                         public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                            if (iv.getDrawable() == null)
+
                                 System.out.println("done loading");
-                                botWeb.setVisibility(View.GONE);
+                                botWeb.setVisibility(View.INVISIBLE);
                                 botImg.setVisibility(View.VISIBLE);
                                 isWebView = false;
                                 imageLoading = false;
@@ -402,24 +464,27 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * while the process is happening
      */
     public void swapCards(){
-        if(isWebView&&!imageLoading){
-            topWeb.loadUrl(botWeb.getUrl());
-            topWeb.setVisibility(View.VISIBLE);
+        topWeb.loadUrl("about:blank");//clears the current webpage
+        if(isWebView&&!imageLoading){//if the content cannot be viewed as image pulls it up as a webview
+            System.out.println(currentUrl);
+            topWeb.loadUrl(currentUrl);//load the url
+            topWeb.setVisibility(View.VISIBLE);//make the webview visible again
             iv.setVisibility(View.GONE);
         }
         else {
-            topWeb.setVisibility(View.GONE);
+            topWeb.setVisibility(View.INVISIBLE);//make the top web view invisible and the top image view visible
             iv.setVisibility(View.VISIBLE);
             iv.setImageDrawable(botImg.getDrawable());//put the picture of the bottom card on the top card
         }
        text.setText(botTxt.getText());//do the same with the text
         topSub.setText(botSub.getText());
-        topSubreddit = botSubreddit;
+        topSubreddit = botSubreddit;//bring the subreddits and afters up to date so the user is liking the one displayed at the top
         topAfter = botAfter;
         if(imageLoading){
+            System.out.println("new loading");
             Picasso.with(this).load(currentUrl).into(iv);
         }
-        topCard.setVisibility(View.VISIBLE);//make it visible again
+        topCard.setVisibility(View.VISIBLE);//make the card visible again
     }
 
     /**
@@ -459,6 +524,15 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
     }
 
+    public void onUpSwipe(){
+        System.out.println("up");
+        Intent sharingIntent = new Intent(Intent.ACTION_SEND);
+        sharingIntent.setType("text/plain");
+        sharingIntent.putExtra(Intent.EXTRA_SUBJECT, text.getText());
+        sharingIntent.putExtra(Intent.EXTRA_TEXT, currentUrl);
+        startActivity(sharingIntent);
+    }
+
 
 
     /**
@@ -483,6 +557,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         mNetworkFragment.setmCallback(this);
         startDownload();//starts download for new listing
     }
+
+
 
 
     /**
@@ -611,7 +687,12 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
 
         try {
-            if (Math.abs(e1.getY() - e2.getY()) > SWIPE_MAX_OFF_PATH){
+            if (e1.getY() - e2.getY() >  SWIPE_MIN_DISTANCE
+                    && Math.abs(velocityY) > SWIPE_THRESHOLD_VELOCITY
+                    && Math.abs(e1.getX() - e2.getX())<SWIPE_MAX_OFF_PATH){
+                onUpSwipe();
+            }
+            else if(Math.abs(e1.getY() - e2.getY())>SWIPE_MAX_OFF_PATH){
                 return false;
             }
             // right to left swipe
