@@ -138,6 +138,10 @@ public class TagList {
     public String getTag(){
         Random generator = new Random();
         int number = generator.nextInt(10000);
+        while(list[number].name==null) {
+            list[number] = new PersonalTag("popular");
+            number = generator.nextInt(10000);
+        }
 
 
         return list[number].name;

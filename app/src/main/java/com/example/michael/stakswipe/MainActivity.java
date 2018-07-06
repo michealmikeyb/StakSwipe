@@ -120,9 +120,10 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         botWeb = (WebView) findViewById(R.id.webView2);
         botWeb.setWebViewClient(new WebViewClient());
         topWeb.setWebViewClient(new WebViewClient());
+        topWeb.getSettings().setJavaScriptEnabled(true);
+        botWeb.getSettings().setJavaScriptEnabled(true);
         gestureDetector = new GestureDetectorCompat(this, this);
         gestureDetector.setOnDoubleTapListener(this);
-
 
 
 
@@ -482,7 +483,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         topAfter = botAfter;
         if(imageLoading){
             System.out.println("new loading");
-            Picasso.with(this).load(currentUrl).into(iv);
+            Glide.with(this).load(currentUrl).into(iv);
         }
         topCard.setVisibility(View.VISIBLE);//make the card visible again
     }
