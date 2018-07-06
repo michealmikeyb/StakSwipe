@@ -27,6 +27,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.Animation;
 import android.view.animation.TranslateAnimation;
+import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
@@ -86,11 +87,13 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     private String botAfter;//the id of the next post in the specific subreddit
     private String topSubreddit;//the sub of the content currently on the top card
     private String topAfter;//the after of the current listing on the top card
-    private String currentUrl;//the url of the current listing
+    private String botUrl;//the url of the bottom listing
+    private String topUrl;
     private boolean imageLoading;//whether the image is loading or not
     private boolean isWebView;
     public SubList sublist;// stores the ids of the posts that will be pulled next for each subreddit
     private boolean isPopular = true;// shows whether the current post comes from the popular subreddit
+    private String domain;
 
     //places to long term store the taglist information and the subreddit list information
     private SharedPreferences.Editor tagPref;
@@ -120,12 +123,11 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         botWeb = (WebView) findViewById(R.id.webView2);
         botWeb.setWebViewClient(new WebViewClient());
         topWeb.setWebViewClient(new WebViewClient());
-        topWeb.getSettings().setJavaScriptEnabled(true);
-        botWeb.getSettings().setJavaScriptEnabled(true);
         gestureDetector = new GestureDetectorCompat(this, this);
         gestureDetector.setOnDoubleTapListener(this);
 
-
+        topWeb.getSettings().setJavaScriptEnabled(true);
+        botWeb.getSettings().setJavaScriptEnabled(true);
 
         //initializing the list
         list = new TagList();
@@ -171,7 +173,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     public boolean onOptionsItemSelected(MenuItem item) {
         switch (item.getItemId()){
             case R.id.share: {//if the user selects share goes to the share method
-                onUpSwipe();
+                share();
                 return true;
             }
             case R.id.add_tag://if the user selects add tag opens up a dialog where the user can enter the tag they want to add to their list
@@ -202,7 +204,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     @Override
     public void onDialogPositiveClick(DialogFragment dialog, String tag) {
-        list.like(new PersonalTag(tag));
+        list.like(tag);
     }
 
     /**
@@ -290,7 +292,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
                 swapCards();
                 botSubreddit = d.getSubreddit();//sets the current subreddit
                 botAfter = json.substring(afterStart, afterEnd);
-                currentUrl = d.getUrl();
+                botUrl = d.getUrl();
+                domain = d.getDomain();
 
                 botTxt.setText(d.getTitle());//sets the text to the title
                 botSub.setText("Posted on: " + d.getSubreddit() + "\nBy: " + d.getAuthor());//gives context for the content
@@ -305,7 +308,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
                         public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
                             imageLoading = false;
                             isWebView = true;//needed for swapping the cards
-                            botWeb.loadUrl(currentUrl);
+                            handlePermissions(domain);
+                            botWeb.loadUrl(botUrl);
                             botWeb.setVisibility(View.VISIBLE);
                             botImg.setVisibility(View.INVISIBLE);
                             return false;
@@ -313,7 +317,6 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
                         @Override//if it can be loaded sets the webview to invisible
                         public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-
                                 System.out.println("done loading");
                                 botWeb.setVisibility(View.INVISIBLE);
                                 botImg.setVisibility(View.VISIBLE);
@@ -327,6 +330,30 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
 
+    }
+
+    public void handlePermissions(String domain){
+        switch(domain){
+            case "i.imgur.com":
+                topWeb.getSettings().setJavaScriptEnabled(true);
+                botWeb.getSettings().setJavaScriptEnabled(true);
+                topWeb.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                botWeb.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_ALWAYS_ALLOW);
+                return;
+            case "v.redd.it":
+                topWeb.getSettings().setJavaScriptEnabled(true);
+                botWeb.getSettings().setJavaScriptEnabled(true);
+                return;
+            case "i.redd.it":
+                topWeb.getSettings().setJavaScriptEnabled(true);
+                botWeb.getSettings().setJavaScriptEnabled(true);
+                return;
+            case "gfycat.com":
+                topWeb.getSettings().setJavaScriptEnabled(false);
+                botWeb.getSettings().setJavaScriptEnabled(false);
+            default:
+                return;
+        }
     }
 
     @Override
@@ -430,7 +457,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * starts download of next listing
      */
     public void onLeftSwipe(){
-        list.dislike(new PersonalTag(topSubreddit));//dislikes current subreddit
+        list.dislike(topSubreddit);//dislikes current subreddit
         //sets which subreddit it will set the after to
         sublist.setAfter(topSubreddit, topAfter);
         if(isPopular){
@@ -467,8 +494,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     public void swapCards(){
         topWeb.loadUrl("about:blank");//clears the current webpage
         if(isWebView&&!imageLoading){//if the content cannot be viewed as image pulls it up as a webview
-            System.out.println(currentUrl);
-            topWeb.loadUrl(currentUrl);//load the url
+            System.out.println(botUrl);
+            topWeb.loadUrl(botUrl);//load the url
             topWeb.setVisibility(View.VISIBLE);//make the webview visible again
             iv.setVisibility(View.GONE);
         }
@@ -481,9 +508,10 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         topSub.setText(botSub.getText());
         topSubreddit = botSubreddit;//bring the subreddits and afters up to date so the user is liking the one displayed at the top
         topAfter = botAfter;
+        topUrl = botUrl;
         if(imageLoading){
             System.out.println("new loading");
-            Glide.with(this).load(currentUrl).into(iv);
+            Glide.with(this).load(botUrl).into(iv);
         }
         topCard.setVisibility(View.VISIBLE);//make the card visible again
     }
@@ -493,8 +521,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * then starts a new listing on the bottom card
      */
     public void onRightSwipe(){
+        list.like(topSubreddit);//likes current subreddit
         System.out.println("right");
-        list.like(new PersonalTag(topSubreddit));//likes current subreddit
         //checks if listing is from popular subreddit to assign after
         sublist.setAfter(topSubreddit, topAfter);
         if(isPopular){
@@ -525,12 +553,14 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
     }
 
-    public void onUpSwipe(){
-        System.out.println("up");
+    /**
+     * chares the current url and subject of the current top card
+     */
+    public void share(){
         Intent sharingIntent = new Intent(Intent.ACTION_SEND);
         sharingIntent.setType("text/plain");
         sharingIntent.putExtra(Intent.EXTRA_SUBJECT, text.getText());
-        sharingIntent.putExtra(Intent.EXTRA_TEXT, currentUrl);
+        sharingIntent.putExtra(Intent.EXTRA_TEXT, topUrl);
         startActivity(sharingIntent);
     }
 
@@ -691,7 +721,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             if (e1.getY() - e2.getY() >  SWIPE_MIN_DISTANCE
                     && Math.abs(velocityY) > SWIPE_THRESHOLD_VELOCITY
                     && Math.abs(e1.getX() - e2.getX())<SWIPE_MAX_OFF_PATH){
-                onUpSwipe();
+                share();
             }
             else if(Math.abs(e1.getY() - e2.getY())>SWIPE_MAX_OFF_PATH){
                 return false;
