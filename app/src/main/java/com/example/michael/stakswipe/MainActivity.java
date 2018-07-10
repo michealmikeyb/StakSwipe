@@ -32,6 +32,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
 import android.widget.MediaController;
+import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.LinearLayout;
 import android.view.ViewGroup;
@@ -52,6 +53,7 @@ import com.squareup.picasso.Picasso;
 
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.zip.Inflater;
 
 public class MainActivity  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener, AddTagDialog.AddTagDialogListener{
     private TextView text;// text at the top that displays the title of the post
@@ -289,12 +291,11 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
 
             if(d!=null) {
-                swapCards();
                 botSubreddit = d.getSubreddit();//sets the current subreddit
                 botAfter = json.substring(afterStart, afterEnd);
                 botUrl = d.getUrl();
                 domain = d.getDomain();
-
+                System.out.println(d.getUrl());
                 botTxt.setText(d.getTitle());//sets the text to the title
                 botSub.setText("Posted on: " + d.getSubreddit() + "\nBy: " + d.getAuthor());//gives context for the content
 
@@ -474,6 +475,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
             @Override
             public void onAnimationEnd(Animation animation) {//once animation has ended swap the cards then start to load new content on the bottom card
+                topCard.setVisibility(View.INVISIBLE);//set top card to invisible
                 swapCards();
                 newContent();
             }
@@ -492,28 +494,41 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * while the process is happening
      */
     public void swapCards(){
-        topWeb.loadUrl("about:blank");//clears the current webpage
-        if(isWebView&&!imageLoading){//if the content cannot be viewed as image pulls it up as a webview
-            System.out.println(botUrl);
-            topWeb.loadUrl(botUrl);//load the url
-            topWeb.setVisibility(View.VISIBLE);//make the webview visible again
-            iv.setVisibility(View.GONE);
-        }
-        else {
-            topWeb.setVisibility(View.INVISIBLE);//make the top web view invisible and the top image view visible
-            iv.setVisibility(View.VISIBLE);
-            iv.setImageDrawable(botImg.getDrawable());//put the picture of the bottom card on the top card
-        }
-       text.setText(botTxt.getText());//do the same with the text
-        topSub.setText(botSub.getText());
+
+        RelativeLayout layout = findViewById(R.id.mainLayout);//set the top views to a temp to swap them
+        CardView tempCard = topCard;
+        ImageView tempImg = iv;
+        TextView tempText = text;
+        TextView tempInfo = topSub;
+        WebView tempWeb = topWeb;
+        //swap them
+        topCard = bottomCard;
+        iv = botImg;
+        text = botTxt;
+        topSub = botSub;
+        topWeb = botWeb;
+
+        bottomCard = tempCard;
+        botImg = tempImg;
+        botTxt = tempText;
+        botSub = tempInfo;
+        botWeb = tempWeb;
+        //change the subreddits and afters, the bottom doesn't need these to be swapped
         topSubreddit = botSubreddit;//bring the subreddits and afters up to date so the user is liking the one displayed at the top
         topAfter = botAfter;
         topUrl = botUrl;
-        if(imageLoading){
-            System.out.println("new loading");
-            Glide.with(this).load(botUrl).into(iv);
-        }
-        topCard.setVisibility(View.VISIBLE);//make the card visible again
+        layout.bringChildToFront(topCard);
+        bottomCard.setVisibility(View.VISIBLE);//make the card visible again
+
+
+    }
+
+    public void addCard(){
+        LayoutInflater inflater = getLayoutInflater();
+        View newCard = inflater.inflate(R.layout.card, null);
+        RelativeLayout layout = findViewById(R.id.mainLayout);
+        layout.addView(newCard, 0);
+        //layout.bringChildToFront(newCard);
     }
 
     /**
@@ -539,7 +554,9 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
 
             @Override
             public void onAnimationEnd(Animation animation) {
+
                 topCard.setVisibility(View.INVISIBLE);//set top card to invisible
+                swapCards();
                 newContent();
             }
 
@@ -758,3 +775,4 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         return super.onTouchEvent(event);
     }
 }
+
