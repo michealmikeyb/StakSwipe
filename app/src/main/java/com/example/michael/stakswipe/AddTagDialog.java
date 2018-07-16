@@ -9,15 +9,17 @@ import android.support.v7.app.AlertDialog;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.widget.EditText;
+import android.widget.RadioButton;
 
 public class AddTagDialog extends DialogFragment{
     private String tagToAdd;//the tag that will be added to the list
+    private String source;
 
     /* The activity that creates an instance of this dialog fragment must
      * implement this interface in order to receive event callbacks.
      * Each method passes the DialogFragment in case the host needs to query it. */
     public interface AddTagDialogListener {
-        public void onDialogPositiveClick(DialogFragment dialog, String tag);
+        public void onDialogPositiveClick(DialogFragment dialog, String tag, String source);
         public void onDialogNegativeClick(DialogFragment dialog);
     }
      AddTagDialogListener mListener;
@@ -54,7 +56,7 @@ public class AddTagDialog extends DialogFragment{
                     public void onClick(DialogInterface dialog, int id) {
                         EditText text = addTag.findViewById(R.id.tag_edit);
                         tagToAdd = text.getText().toString();
-                        mListener.onDialogPositiveClick(AddTagDialog.this, tagToAdd);
+                        mListener.onDialogPositiveClick(AddTagDialog.this, tagToAdd, source);
                     }
                 })
                 .setNegativeButton(R.string.cancel, new DialogInterface.OnClickListener() {
@@ -67,6 +69,24 @@ public class AddTagDialog extends DialogFragment{
 
         return builder.create();
 
+    }
+    public void onRadioButtonClicked(View view) {
+        // Is the button now checked?
+        boolean checked = ((RadioButton) view).isChecked();
+
+        // Check which radio button was clicked
+        switch(view.getId()) {
+            case R.id.radio_stak:
+                if (checked) {
+                    source = "stak";
+                    System.out.println(source);
+                    break;
+                }
+            case R.id.radio_reddit:
+                if (checked)
+                    source = "reddit";
+                    break;
+        }
     }
 
 }

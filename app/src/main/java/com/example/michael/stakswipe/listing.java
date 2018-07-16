@@ -5,7 +5,7 @@ package com.example.michael.stakswipe;
  * stores all the information for a specific listing on reddit
  */
 
-public class listing
+public class listing implements listingInterface
 {
     private String score;
 
@@ -134,6 +134,12 @@ public class listing
     private String selftext;
 
     private String approved_at_utc;
+    private String after;
+
+    public listing(String a){
+        after = a;
+    }
+    public String getAfter(){return after;}
 
     public String getScore ()
     {
@@ -328,7 +334,7 @@ public class listing
         this.url = url;
     }
 
-    public String getSubreddit ()
+    public String getTag ()
     {
         return subreddit;
     }

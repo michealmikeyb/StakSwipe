@@ -17,4 +17,19 @@
         android:inputType="text"
         />
 
+    <RadioGroup
+        android:layout_width="match_parent"
+        android:layout_height="match_parent">
+    <RadioButton android:id="@+id/radio_reddit"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/Reddit"
+        android:onClick="onRadioButtonClicked"/>
+    <RadioButton android:id="@+id/radio_stak"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="@string/StakSwipe"
+        android:onClick="onRadioButtonClicked"/>
+    </RadioGroup>
+
 </LinearLayout>

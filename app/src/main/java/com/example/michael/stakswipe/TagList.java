@@ -21,7 +21,7 @@ public class TagList {
     public TagList(){
         allTags = new ArrayList<PersonalTag>();//initialize the list
         list = new PersonalTag[10000];
-        PersonalTag popular = new PersonalTag("popular");
+        PersonalTag popular = new PersonalTag("popular", "reddit");
         //fill it with the popular tag
         for(int i = 0; i<10000; i++){
             list[i] = popular;
@@ -48,7 +48,7 @@ public class TagList {
      *
      * @param tag the tag that is being liked
      */
-    public void like(String tag){
+    public void like(String tag, String source){
         if(tag == null)
             return;
         boolean alreadyIn = false;//whether the tag is already in
@@ -65,7 +65,7 @@ public class TagList {
             raise = allTags.get(allTagsPlace).like();
         }
         else if(tag!=null) {
-            PersonalTag p = new PersonalTag(tag);
+            PersonalTag p = new PersonalTag(tag, source);
             raise = p.firstLike();
             allTags.add(p);
             allTagsPlace = allTags.size()-1;
@@ -95,7 +95,7 @@ public class TagList {
      * and making them available for other tags
      * @param tag the tag to dislike
      */
-    public void dislike(String tag){
+    public void dislike(String tag, String source){
         if(tag==null)
             return;
         boolean alreadyIn = false;//whether the tag is already in
@@ -133,7 +133,7 @@ public class TagList {
         }
 
         else if(tag!=null){//gives first dislike making rating -5 and adding it to the alltags list
-            PersonalTag p = new PersonalTag(tag);
+            PersonalTag p = new PersonalTag(tag, source);
             p.firstDislike();
             allTags.add(p);
         }
@@ -144,19 +144,19 @@ public class TagList {
      * gives a random tag on the list
      * @return a random tag from the list
      */
-    public String getTag(){
+    public PersonalTag getTag(){
         Random generator = new Random();
         int number = generator.nextInt(10000);
 
         while(list[number].name==null) {
-            list[number] = new PersonalTag("popular");
+            list[number] = new PersonalTag("popular", "reddit");
             number = generator.nextInt(10000);
             int[] nullNumber = {number};
             def.take(nullNumber);
         }
 
 
-        return list[number].name;
+        return list[number];
     }
 
     /**
@@ -211,7 +211,7 @@ public class TagList {
                 allTags.remove(p);
         for(int i = 0;i<list.length;i++){//go through the list
             if(list[i].name!=null&&list[i].name.equals(tag)){
-                list[i] = new PersonalTag("popular");//replace the tags place in the list with popular
+                list[i] = new PersonalTag("popular", "reddit");//replace the tags place in the list with popular
                 int[] removeNums = {i};//add that to the deficit to free up the numbers
                 def.take(removeNums);
             }

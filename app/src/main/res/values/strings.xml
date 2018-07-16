@@ -4,4 +4,6 @@
     <string name="cancel">Cancel</string>
     <string name="enter_tag">Enter Tag</string>
     <string name="add_a_tag">Add a Tag</string>
+    <string name="StakSwipe">StakSwipe</string>
+    <string name= "Reddit">Reddit</string>
 </resources>

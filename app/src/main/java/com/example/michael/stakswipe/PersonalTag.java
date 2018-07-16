@@ -12,13 +12,15 @@ public class PersonalTag {
     public double LikeMultiplier;// how much a like or dislike will increase or decrease the rating
     public double DislikeMultiplier;
     public String name;//name of the subreddit/tag
+    public String source;
     ArrayList<Integer> listNumbers;//the list of numbers that the tag occupies in the taglist
 
     /**
      * initializes a new tag with a name
      * @param n the name of the tag/subreddit
      */
-    public PersonalTag(String n){
+    public PersonalTag(String n, String s){
+        source = s;
         name = n;
         rating = 0;
         LikeMultiplier = 0.5;

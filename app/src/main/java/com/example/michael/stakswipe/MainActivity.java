@@ -2,6 +2,8 @@ package com.example.michael.stakswipe;
 
 import android.app.ActivityOptions;
 import android.app.Dialog;
+import android.content.ClipData;
+import android.content.ClipDescription;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
@@ -17,6 +19,7 @@ import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
 import android.transition.Slide;
 import android.util.JsonReader;
+import android.view.DragEvent;
 import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.LayoutInflater;
@@ -32,6 +35,7 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.ImageView;
 import android.widget.MediaController;
+import android.widget.RadioButton;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.LinearLayout;
@@ -51,8 +55,20 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonSyntaxException;
 import com.squareup.picasso.Picasso;
 
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.OutputStream;
+import java.io.OutputStreamWriter;
 import java.io.Reader;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.ArrayList;
+import java.util.concurrent.ExecutionException;
 import java.util.zip.Inflater;
 
 public class MainActivity  extends AppCompatActivity implements com.example.michael.stakswipe.DownloadCallback, GestureDetector.OnGestureListener, GestureDetector.OnDoubleTapListener, AddTagDialog.AddTagDialogListener{
@@ -96,6 +112,9 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     public SubList sublist;// stores the ids of the posts that will be pulled next for each subreddit
     private boolean isPopular = true;// shows whether the current post comes from the popular subreddit
     private String domain;
+    private String source;//used for the addtag dialog
+    private String topSource;
+    private String botSource;
 
     //places to long term store the taglist information and the subreddit list information
     private SharedPreferences.Editor tagPref;
@@ -136,11 +155,11 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         sublist = new SubList();
 
         //pulling the last taglist and sublist from the previous session or creating a new place to store it
-        tagSettings = getSharedPreferences("stakTagSave", Context.MODE_PRIVATE);
-        placeSettings = getSharedPreferences("stakPlaceSave", Context.MODE_PRIVATE);
+        tagSettings = getSharedPreferences("stakTagSaveList", Context.MODE_PRIVATE);
+        placeSettings = getSharedPreferences("stakPlaceSaveList", Context.MODE_PRIVATE);
         tagPref = tagSettings.edit();
         placePref = placeSettings.edit();
-        if(tagSettings.contains("stakTagSave"))
+        if(tagSettings.contains("stakTagSaveList"))
             restore();
         else
             save();
@@ -198,15 +217,33 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
     public void onDialogNegativeClick(DialogFragment dialog) {
 
     }
-
     /** handles when the user hits add tag within the dialog
      * adds the tag to the taglist
      * @param dialog
      * @param tag
      */
     @Override
-    public void onDialogPositiveClick(DialogFragment dialog, String tag) {
-        list.like(tag);
+    public void onDialogPositiveClick(DialogFragment dialog, String tag, String source) {
+        list.like(tag, source);
+    }
+    public void onRadioButtonClicked(View view) {
+
+        // Is the button now checked?
+        boolean checked = ((RadioButton) view).isChecked();
+
+        // Check which radio button was clicked
+        switch(view.getId()) {
+            case R.id.radio_stak:
+                if (checked) {
+                    source = "stak";
+                    System.out.println(source);
+                    break;
+                }
+            case R.id.radio_reddit:
+                if (checked)
+                    source = "reddit";
+                break;
+        }
     }
 
     /**
@@ -233,47 +270,44 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     @Override
     public void updateFromDownload(Object result) {
+
         String json = (String) result;
         save();//saves the current taglist and sublist
-        if(json.contains("youtube.com")){//video posts have different json formats so have to be handled differently
-            int afterStart = json.lastIndexOf("after")+9;//finds the start of the after pointer
-            int afterEnd = json.lastIndexOf("before")-4;
+        if (json.contains("youtube.com")) {//video posts have different json formats so have to be handled differently
+            int afterStart = json.lastIndexOf("after") + 9;//finds the start of the after pointer
+            int afterEnd = json.lastIndexOf("before") - 4;
 
-            int subStart = json.indexOf("\"subreddit\"")+14;
-            int subEnd = json.indexOf("\"selftext\"")-3;
+            int subStart = json.indexOf("\"subreddit\"") + 14;
+            int subEnd = json.indexOf("\"selftext\"") - 3;
             System.out.println(json.substring(subStart, subEnd));
             botSubreddit = json.substring(subStart, subEnd);
             botAfter = json.substring(afterStart, afterEnd);
             newContent();
             return;
-        }
-        else {
+        } else {
             String title = "";
             try {//finds the third { of the json because thats where the listing data starts
                 //int dataStart = json.indexOf('{', json.indexOf('{', json.indexOf('{', json.indexOf('{')+1)+1)+1);
-                int dataStart = json.lastIndexOf("\"data\"")+7;
+                int dataStart = json.lastIndexOf("\"data\"") + 7;
                 //finds the third } of the json because thats where the listing data ends
-                int dataEnd = json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}')-1)-1)-1)+1;
+                int dataEnd = json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}', json.lastIndexOf('}') - 1) - 1) - 1) + 1;
                 title = json.substring(dataStart, dataEnd); // creates a substring of the data section
-            }
-            catch(StringIndexOutOfBoundsException e){
-                if(!firstCheck){//tries the same url again in case it was an error in downloading/ lost packets
+            } catch (StringIndexOutOfBoundsException e) {
+                if (!firstCheck) {//tries the same url again in case it was an error in downloading/ lost packets
                     firstCheck = true;
                     mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), jsonUrl);
                     mNetworkFragment.onCreate(null);
                     mNetworkFragment.setmCallback(this);
                     startDownload();//starts download for new listing
-                }
-                else {//if not changes firstcheck back to false and tries new content
+                } else {//if not changes firstcheck back to false and tries new content
                     firstCheck = false;
                     newContent();
                     return;
                 }
             }
 
-            int afterStart = json.lastIndexOf("after")+9;//finds the start of the after pointer
-            int afterEnd = json.lastIndexOf("before")-4;
-
+            int afterStart = json.lastIndexOf("after") + 9;//finds the start of the after pointer
+            int afterEnd = json.lastIndexOf("before") - 4;
 
 
             Gson gson = new Gson();
@@ -282,56 +316,60 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
                 d = gson.fromJson(title, listing.class);//turns the data into a listing
             } catch (JsonSyntaxException e) {
 
-                d = new listing();
+                d = new listing(json.substring(afterStart, afterEnd));
                 System.out.println(e.toString());
                 return;
             }
 
 
+            if (d != null) {
+                System.out.println("updated");
 
-
-            if(d!=null) {
-                botSubreddit = d.getSubreddit();//sets the current subreddit
-                botAfter = json.substring(afterStart, afterEnd);
-                botUrl = d.getUrl();
-                domain = d.getDomain();
-                System.out.println(d.getUrl());
-                botTxt.setText(d.getTitle());//sets the text to the title
-                botSub.setText("Posted on: " + d.getSubreddit() + "\nBy: " + d.getAuthor());//gives context for the content
-
-
-                    //Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
-                    imageLoading = true;
-                    isWebView = false;//assume it is an image until it fails to load
-                    botWeb.loadUrl("about:blank");
-                    Glide.with(this).load(d.getUrl()).listener(new RequestListener<Drawable>() {
-                        @Override//if the content fails to load it is assumed that it is not an image and tries to load it in a webview
-                        public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
-                            imageLoading = false;
-                            isWebView = true;//needed for swapping the cards
-                            handlePermissions(domain);
-                            botWeb.loadUrl(botUrl);
-                            botWeb.setVisibility(View.VISIBLE);
-                            botImg.setVisibility(View.INVISIBLE);
-                            return false;
-                        }
-
-                        @Override//if it can be loaded sets the webview to invisible
-                        public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
-                                System.out.println("done loading");
-                                botWeb.setVisibility(View.INVISIBLE);
-                                botImg.setVisibility(View.VISIBLE);
-                                isWebView = false;
-                                imageLoading = false;
-                            return false;
-                        }
-                    }).into(botImg);
-                }
+                showBot(d);
             }
 
 
-
+        }
     }
+    public void showBot (listingInterface d)
+        {
+            botSubreddit = d.getTag();//sets the current subreddit
+            botAfter = d.getAfter();
+            botUrl = d.getUrl();
+            domain = d.getDomain();
+            System.out.println(d.getUrl());
+            botTxt.setText(d.getTitle());//sets the text to the title
+            botSub.setText("Posted on: " + d.getTag() + "\nBy: " + d.getAuthor());//gives context for the content
+
+
+            //Picasso.with(this).load(d.getUrl()).into(botImg);//sets the image to the image from the url in the listing
+            imageLoading = true;
+            isWebView = false;//assume it is an image until it fails to load
+            botWeb.loadUrl("about:blank");
+            Glide.with(this).load(d.getUrl()).listener(new RequestListener<Drawable>() {
+                @Override//if the content fails to load it is assumed that it is not an image and tries to load it in a webview
+                public boolean onLoadFailed(@Nullable GlideException e, Object model, Target<Drawable> target, boolean isFirstResource) {
+                    imageLoading = false;
+                    isWebView = true;//needed for swapping the cards
+                    handlePermissions(domain);
+                    botWeb.loadUrl(botUrl);
+                    botWeb.setVisibility(View.VISIBLE);
+                    botImg.setVisibility(View.INVISIBLE);
+                    return false;
+                }
+
+                @Override//if it can be loaded sets the webview to invisible
+                public boolean onResourceReady(Drawable resource, Object model, Target<Drawable> target, DataSource dataSource, boolean isFirstResource) {
+                    System.out.println("done loading");
+                    botWeb.setVisibility(View.INVISIBLE);
+                    botImg.setVisibility(View.VISIBLE);
+                    isWebView = false;
+                    imageLoading = false;
+                    return false;
+                }
+            }).into(botImg);
+        }
+
 
     public void handlePermissions(String domain){
         switch(domain){
@@ -417,10 +455,10 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             String placeValue = gson.toJson(sublist);
 
             //saves the json that was made
-            tagPref.putString("stakTagSave", tagValue);
+            tagPref.putString("stakTagSaveList", tagValue);
             tagPref.commit();
 
-            placePref.putString("stakPlaceSave", placeValue);
+            placePref.putString("stakPlaceSaveList", placeValue);
             placePref.commit();
             return true;
 
@@ -438,16 +476,16 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         GsonBuilder gsonb = new GsonBuilder();
         Gson gson = gsonb.create();
 
-        String tagLoad = tagSettings.getString("stakTagSave", "");
+        String tagLoad = tagSettings.getString("stakTagSaveList", "");
         list = gson.fromJson(tagLoad, TagList.class);
 
-        String placeLoad = placeSettings.getString("stakPlaceSave", "");
+        String placeLoad = placeSettings.getString("stakPlaceSaveList", "");
         sublist = gson.fromJson(placeLoad, SubList.class);
 
         if(sublist.checkReset())//checks after if it is time for the sublist to reset
             sublist= new SubList();
 
-        System.out.println("loaded from:"+placeLoad);
+        System.out.println("loaded from:"+tagLoad);
 
 
     }
@@ -458,7 +496,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * starts download of next listing
      */
     public void onLeftSwipe(){
-        list.dislike(topSubreddit);//dislikes current subreddit
+        list.dislike(topSubreddit, topSource);//dislikes current subreddit
         //sets which subreddit it will set the after to
         sublist.setAfter(topSubreddit, topAfter);
         if(isPopular){
@@ -487,6 +525,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         };
         leftAnimation.setAnimationListener(l);
         topCard.startAnimation(leftAnimation);
+
     }
 
     /**
@@ -494,7 +533,6 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * while the process is happening
      */
     public void swapCards(){
-
         RelativeLayout layout = findViewById(R.id.mainLayout);//set the top views to a temp to swap them
         CardView tempCard = topCard;
         ImageView tempImg = iv;
@@ -518,25 +556,39 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
         topAfter = botAfter;
         topUrl = botUrl;
         layout.bringChildToFront(topCard);
+        /**topCard.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                View.DragShadowBuilder shadow = new View.DragShadowBuilder(topCard);
+                ClipData.Item item = new ClipData.Item("left");
+                ClipData data = ClipData.newPlainText("test", "left");
+                topCard.startDrag(data, shadow, null, 0);
+                topCard.setOnDragListener(new View.OnDragListener() {
+                    @Override
+                    public boolean onDrag(View view, DragEvent dragEvent) {
+                        switch(dragEvent.getAction()){
+                            case DragEvent.ACTION_DRAG_STARTED:
+                                swapCards();
+                        }
+                        return false;
+                    }
+                });
+                return false;
+            }
+        });**/
         bottomCard.setVisibility(View.VISIBLE);//make the card visible again
 
 
     }
 
-    public void addCard(){
-        LayoutInflater inflater = getLayoutInflater();
-        View newCard = inflater.inflate(R.layout.card, null);
-        RelativeLayout layout = findViewById(R.id.mainLayout);
-        layout.addView(newCard, 0);
-        //layout.bringChildToFront(newCard);
-    }
+
 
     /**
      * handles the right swipe action, likes the current subreddit, does a right swiping animation
      * then starts a new listing on the bottom card
      */
     public void onRightSwipe(){
-        list.like(topSubreddit);//likes current subreddit
+        list.like(topSubreddit, topSource);//likes current subreddit
         System.out.println("right");
         //checks if listing is from popular subreddit to assign after
         sublist.setAfter(topSubreddit, topAfter);
@@ -544,7 +596,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             sublist.setAfter("popular", topAfter);
         }
 
-        TranslateAnimation rightAnimation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_PARENT, 1, Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_SELF, 0);
+        /**TranslateAnimation rightAnimation = new TranslateAnimation(Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_PARENT, 1, Animation.RELATIVE_TO_SELF, 0, Animation.RELATIVE_TO_SELF, 0);
         rightAnimation.setDuration(500);
         Animation.AnimationListener l = new Animation.AnimationListener() {
             @Override
@@ -566,7 +618,7 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
             }
         };
         rightAnimation .setAnimationListener(l);
-        topCard.startAnimation(rightAnimation);
+        topCard.startAnimation(rightAnimation);**/
 
     }
 
@@ -588,22 +640,47 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      * download manager to get the json to be parsed
      */
     public void newContent(){
-        String newSub = list.getTag();//gets the next sub and checks if it is popular
-        isPopular = newSub.equals("popular");
+        PersonalTag newSub = list.getTag();//gets the next sub and checks if it is popular
+        isPopular = newSub.name.equals("popular");
         //checks if its already in sublist, if not just goes to first listing in subreddit, if it is then goes to the next listing
-        if(sublist.getAfter(newSub).equals("notIn")){
-            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/"+newSub+".json?limit=1");
-            System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1");
-            jsonUrl = "https://www.reddit.com/r/" + newSub + ".json?limit=1";
+        if(newSub.source.equals("reddit")) {
+            if(sublist.getAfter(newSub.name).equals("notIn")){
+             mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/"+newSub+".json?limit=1");
+             System.out.println("https://www.reddit.com/r/" + newSub.name + ".json?limit=1");
+             jsonUrl = "https://www.reddit.com/r/" + newSub.name + ".json?limit=1";
+             }
+             else {
+             mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub.name));
+             System.out.println("https://www.reddit.com/r/" + newSub.name + ".json?limit=1;after=" + sublist.getAfter(newSub.name));
+             jsonUrl = "https://www.reddit.com/r/" + newSub.name + ".json?limit=1;after=" + sublist.getAfter(newSub.name);
+             }
+             mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "http://127.0.0.1/stakSwipe/getListing.php?tag=picTag&place=0;");
+             mNetworkFragment.onCreate(null);
+             mNetworkFragment.setmCallback(this);
+             startDownload();//starts download for new listing
         }
-        else {
-            mNetworkFragment = NetworkFragment.getInstance(getSupportFragmentManager(), "https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
-            System.out.println("https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub));
-            jsonUrl = "https://www.reddit.com/r/" + newSub + ".json?limit=1;after=" + sublist.getAfter(newSub);
+        else if(newSub.source.equals("stak")) {
+            if(sublist.getAfter(newSub.name).equals("notIn")) {
+                StakServerDownload s = new StakServerDownload(this);
+                s.execute(newSub.name, "0");
+            }
+            else{
+         StakServerDownload s = new StakServerDownload(this);
+         s.execute(newSub.name, sublist.getAfter(newSub.name));
+         try{
+         Gson gson = new Gson();
+         StakListing l = gson.fromJson(s.get(), StakListing.class);
+         showBot(l);
+         }
+         catch(InterruptedException e){
+         System.out.println(e);
+         }
+         catch(ExecutionException e){
+         System.out.println(e);
+         }
+            }
         }
-        mNetworkFragment.onCreate(null);
-        mNetworkFragment.setmCallback(this);
-        startDownload();//starts download for new listing
+
     }
 
 
@@ -645,7 +722,6 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     @Override
     public boolean onDoubleTapEvent(MotionEvent e) {
-        sublist = new SubList();
         return true;
     }
 
@@ -658,6 +734,8 @@ public class MainActivity  extends AppCompatActivity implements com.example.mich
      */
     @Override
     public boolean onDown(MotionEvent e) {
+
+
         return true;
     }
 
